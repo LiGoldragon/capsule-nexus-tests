@@ -4,7 +4,7 @@ use emission_capsule_nexus::{ExternalOutcome, Herdr, Verb};
 use capsule_nexus_core::generated::memory::PendingCreation;
 use capsule_nexus_core::{Core, ExternalResult, InMemory, Memory};
 use meta_signal_capsule_nexus::{ByteLimit, ConfigurationRefusal, Timeout};
-use shared_translator::{MetaflowName, PeerBinding, PeerId, PeerIdentity, Place, ProcessId, Runtime, State as PlaceState, UserId};
+use shared_translator::{PlaceName, PeerBinding, PeerId, PeerIdentity, Place, ProcessId, Runtime, State as PlaceState, UserId};
 use signal_capsule_nexus::{CreationId, InstanceId, Outcome, Pane, PaneId, Root, Sequence, Session, StorePhase, Workspace};
 
 fn unique_place(name: &str) -> (std::path::PathBuf, Place) {
@@ -15,7 +15,7 @@ fn unique_place(name: &str) -> (std::path::PathBuf, Place) {
     std::fs::create_dir(&directory).expect("fixture directory");
     let text = directory.display().to_string();
     (directory, Place {
-        metaflow_name: MetaflowName(name.into()),
+        place_name: PlaceName(name.into()),
         runtime: Runtime(text.clone()),
         state: PlaceState(text),
     })
@@ -169,6 +169,18 @@ fn test_configuration() -> Arc<ReadyCoreConfiguration> {
     Arc::new(ReadyCoreConfiguration { polling: Duration::from_millis(10), start_timeout: Duration::from_millis(20), frame_capacity_bytes: 4096, transport_timeout: Duration::from_millis(30), subscriber_capacity: 8 })
 }
 
+fn dispatch_for_test(
+    dispatcher: &Dispatcher,
+    query: signal_capsule_nexus::Query,
+    configuration: Arc<ReadyCoreConfiguration>,
+) -> signal_capsule_nexus::Response {
+    let principal = shared_translator::Principal::Login(current_identity().user_id);
+    match dispatcher.dispatch_as(principal, query, configuration) {
+        PublicDispatch::Answered(response) => response,
+        PublicDispatch::Subscribe(_) => panic!("one-shot regression dispatched a subscription"),
+    }
+}
+
 #[test]
 fn stale_list_cannot_overwrite_uncertain_prompt_state() {
     use signal_capsule_nexus::{AgentKind, AgentName, Attempt, Command, Executable, Label, Program, Prompt_Data, Query, Start_Data, Text};
@@ -178,13 +190,17 @@ fn stale_list_cannot_overwrite_uncertain_prompt_state() {
     let emitter = Arc::new(StaleListEmitter { pane: pane.clone(), list_started: started_tx, release_list: std::sync::Mutex::new(release_rx) });
     let (directory, place) = unique_place("stale");
     let paths = SocketPaths::from(&place);
-    let dispatcher = Arc::new(Dispatcher::with_emitter(&paths, emitter));
+    let configuration_store = Arc::new(ConfigurationStore::default());
+    *configuration_store.current.write().unwrap() = Some(test_configuration());
+    let mut dispatcher = Dispatcher::new(&paths, configuration_store, InstanceId("external-stale-list".into()));
+    dispatcher.emitter = emitter;
+    let dispatcher = Arc::new(dispatcher);
     let configuration = test_configuration();
-    assert!(matches!(dispatcher.dispatch(Query::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_capsule_nexus::Response::Created(Outcome::Created(_))));
-    assert!(matches!(dispatcher.dispatch(Query::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_capsule_nexus::Response::Started(Outcome::Done)));
-    let listing = { let dispatcher=Arc::clone(&dispatcher); let configuration=Arc::clone(&configuration); let session=pane.session.clone(); std::thread::spawn(move || dispatcher.dispatch(Query::List(session), configuration)) };
+    assert!(matches!(dispatch_for_test(&dispatcher, Query::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_capsule_nexus::Response::Created(Outcome::Created(_))));
+    assert!(matches!(dispatch_for_test(&dispatcher, Query::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_capsule_nexus::Response::Started(Outcome::Done)));
+    let listing = { let dispatcher=Arc::clone(&dispatcher); let configuration=Arc::clone(&configuration); let session=pane.session.clone(); std::thread::spawn(move || dispatch_for_test(&dispatcher, Query::List(session), configuration)) };
     started_rx.recv().unwrap();
-    assert!(matches!(dispatcher.dispatch(Query::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_capsule_nexus::Response::Prompted(Outcome::Uncertain)));
+    assert!(matches!(dispatch_for_test(&dispatcher, Query::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_capsule_nexus::Response::Prompted(Outcome::Uncertain)));
     release_tx.send(()).unwrap();
     let signal_capsule_nexus::Response::Listed(Outcome::Listed(known)) = listing.join().unwrap() else { panic!("complete list") };
     assert_eq!(known[0].state, signal_capsule_nexus::State::Busy);

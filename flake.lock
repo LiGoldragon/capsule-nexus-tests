@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "capsule-nexus": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794686737,
+        "narHash": "sha256-qG0OjMt0sNvoldgsqKXtmcrqUENffY6LODrgDzFUDxw=",
+        "owner": "LiGoldragon",
+        "repo": "capsule-nexus",
+        "rev": "0014c06b42fd54863af981a972d6afac904907d3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "capsule-nexus",
+        "type": "github"
+      }
+    },
     "crane": {
       "locked": {
         "lastModified": 1780532242,
@@ -73,23 +89,6 @@
         "type": "github"
       }
     },
-    "herdr-nexus": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1793844504,
-        "narHash": "sha256-sqvzGOnfAvJLJki3PU6c8QyO5DwVtcFdfAydheECSuo=",
-        "owner": "LiGoldragon",
-        "repo": "herdr-nexus",
-        "rev": "82c2cab9be859e84ce11a5a3f53ae82aa7571f66",
-        "type": "github"
-      },
-      "original": {
-        "owner": "LiGoldragon",
-        "ref": "82c2cab",
-        "repo": "herdr-nexus",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1793735720,
@@ -108,8 +107,8 @@
     },
     "root": {
       "inputs": {
+        "capsule-nexus": "capsule-nexus",
         "flake-utils": "flake-utils",
-        "herdr-nexus": "herdr-nexus",
         "nixpkgs": "nixpkgs",
         "rust-build": "rust-build"
       }

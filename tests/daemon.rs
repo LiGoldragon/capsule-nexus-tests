@@ -1,15 +1,15 @@
 use super::*;
-use core_meta_herdr_nexus::CoreSet;
-use emission_herdr_nexus::{ExternalOutcome, Herdr, Verb};
-use herdr_nexus_core::generated::memory::PendingCreation;
-use herdr_nexus_core::{Core, ExternalResult, InMemory, Memory};
-use meta_signal_herdr_nexus::{ByteLimit, ConfigurationRefusal, Timeout};
+use core_meta_capsule_nexus::CoreSet;
+use emission_capsule_nexus::{ExternalOutcome, Herdr, Verb};
+use capsule_nexus_core::generated::memory::PendingCreation;
+use capsule_nexus_core::{Core, ExternalResult, InMemory, Memory};
+use meta_signal_capsule_nexus::{ByteLimit, ConfigurationRefusal, Timeout};
 use shared_translator::{MetaflowName, PeerBinding, PeerId, PeerIdentity, Place, ProcessId, Runtime, State as PlaceState, UserId};
-use signal_herdr_nexus::{CreationId, InstanceId, Outcome, Pane, PaneId, Root, Sequence, Session, StorePhase, Workspace};
+use signal_capsule_nexus::{CreationId, InstanceId, Outcome, Pane, PaneId, Root, Sequence, Session, StorePhase, Workspace};
 
 fn unique_place(name: &str) -> (std::path::PathBuf, Place) {
     let directory = std::env::temp_dir().join(format!(
-        "herdr-nexus-external-{name}-{}",
+        "capsule-nexus-external-{name}-{}",
         std::process::id()
     ));
     std::fs::create_dir(&directory).expect("fixture directory");
@@ -35,7 +35,7 @@ fn configure_until_final(bootstrap: &Bootstrap) {
         CoreSet::FrameCapacity(ByteLimit(65_536)),
         CoreSet::TransportTimeout(Timeout(1_000)),
     ] {
-        assert!(matches!(bootstrap.configure(setting), core_meta_herdr_nexus::Response::Configured(_)));
+        assert!(matches!(bootstrap.configure(setting), core_meta_capsule_nexus::Response::Configured(_)));
     }
 }
 
@@ -44,7 +44,7 @@ fn accepted_public_connection_always_has_ready_snapshot() {
     let (directory, place) = unique_place("ready");
     let bootstrap = Arc::new(Bootstrap::bind(
         &place,
-        herdr_nexus_wire::ValidAdmission {
+        capsule_nexus_wire::ValidAdmission {
             deadline: Duration::from_secs(1),
             frame_capacity: 65_536,
             retry_delay: Duration::from_millis(1),
@@ -70,7 +70,7 @@ fn accepted_public_connection_always_has_ready_snapshot() {
     };
     assert!(matches!(
         bootstrap.configure(CoreSet::SubscriberCapacity(8)),
-        core_meta_herdr_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Response::Configured(_)
     ));
     assert!(accepting.join().expect("accept thread"));
     let stream = connecting.join().expect("connect thread");
@@ -83,13 +83,13 @@ fn accepted_public_connection_always_has_ready_snapshot() {
 fn frame_capacity_refusal_preserves_the_prior_setting() {
     let store = ConfigurationStore::default();
     assert!(matches!(
-        store.configure(CoreSet::FrameCapacity(ByteLimit(herdr_nexus_wire::frame::HEADER_BYTES as i64)), || Ok(())),
-        core_meta_herdr_nexus::Response::Configured(_)
+        store.configure(CoreSet::FrameCapacity(ByteLimit(capsule_nexus_wire::frame::HEADER_BYTES as i64)), || Ok(())),
+        core_meta_capsule_nexus::Response::Configured(_)
     ));
     let before = store.partial.read().expect("partial").frame_capacity_bytes;
     assert!(matches!(
-        store.configure(CoreSet::FrameCapacity(ByteLimit(herdr_nexus_wire::frame::HEADER_BYTES as i64 - 1)), || Ok(())),
-        core_meta_herdr_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))
+        store.configure(CoreSet::FrameCapacity(ByteLimit(capsule_nexus_wire::frame::HEADER_BYTES as i64 - 1)), || Ok(())),
+        core_meta_capsule_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))
     ));
     assert_eq!(store.partial.read().expect("partial").frame_capacity_bytes, before);
 }
@@ -117,17 +117,17 @@ fn duplicate_created_pane_preserves_owner_and_pending_fact() {
 #[test]
 fn delayed_prompt_grant_is_refused_after_remove_and_rebind() {
     let store = ConfigurationStore::default();
-    let caller = herdr_nexus_wire::frame::peer_caller(&std::os::unix::net::UnixStream::pair().unwrap().0).unwrap();
+    let caller = capsule_nexus_wire::frame::peer_caller(&std::os::unix::net::UnixStream::pair().unwrap().0).unwrap();
     let identity = PeerIdentity { user_id: caller.user_id.clone(), process_id: caller.process_id.clone() };
     let first = PeerBinding { peer_id: PeerId("first".into()), peer_identity: identity.clone() };
-    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_herdr_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
     let (_, generation) = store.peer_for(&caller).expect("accepted grant");
     assert!(store.peer_grant_is_current(&caller, &first.peer_id, generation));
     let second = PeerBinding { peer_id: PeerId("second".into()), peer_identity: identity };
-    assert!(matches!(store.configure(CoreSet::Peer(second), || Ok(())), core_meta_herdr_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))));
-    assert!(matches!(store.configure(CoreSet::RemovePeer(first.peer_id.clone()), || Ok(())), core_meta_herdr_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(second), || Ok(())), core_meta_capsule_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))));
+    assert!(matches!(store.configure(CoreSet::RemovePeer(first.peer_id.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
     assert!(!store.peer_grant_is_current(&caller, &first.peer_id, generation));
-    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_herdr_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
     let (_, rebound_generation) = store.peer_for(&caller).expect("rebound grant");
     assert_ne!(generation, rebound_generation);
     assert!(!store.peer_grant_is_current(&caller, &first.peer_id, generation));
@@ -140,26 +140,26 @@ struct StaleListEmitter {
     release_list: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
 }
 
-fn pane_listing(pane: &Pane) -> emission_herdr_nexus::PaneListing {
-    emission_herdr_nexus::PaneListing { pane: pane.clone(), terminal_id: emission_herdr_nexus::TerminalId("terminal".into()), workspace_id: emission_herdr_nexus::WorkspaceId("workspace".into()), tab_id: emission_herdr_nexus::TabId("tab".into()) }
+fn pane_listing(pane: &Pane) -> emission_capsule_nexus::PaneListing {
+    emission_capsule_nexus::PaneListing { pane: pane.clone(), terminal_id: emission_capsule_nexus::TerminalId("terminal".into()), workspace_id: emission_capsule_nexus::WorkspaceId("workspace".into()), tab_id: emission_capsule_nexus::TabId("tab".into()) }
 }
 
-fn agent_listing(pane: &Pane, state: signal_herdr_nexus::State) -> emission_herdr_nexus::AgentListing {
-    emission_herdr_nexus::AgentListing { pane: pane.clone(), terminal_id: emission_herdr_nexus::TerminalId("terminal".into()), workspace_id: emission_herdr_nexus::WorkspaceId("workspace".into()), tab_id: emission_herdr_nexus::TabId("tab".into()), state }
+fn agent_listing(pane: &Pane, state: signal_capsule_nexus::State) -> emission_capsule_nexus::AgentListing {
+    emission_capsule_nexus::AgentListing { pane: pane.clone(), terminal_id: emission_capsule_nexus::TerminalId("terminal".into()), workspace_id: emission_capsule_nexus::WorkspaceId("workspace".into()), tab_id: emission_capsule_nexus::TabId("tab".into()), state }
 }
 
 impl ExternalEmitter for StaleListEmitter {
     fn emit(&self, _configuration: &ReadyCoreConfiguration, herdr: Herdr) -> EmissionResult {
         EmissionResult::External(match herdr.verb {
             Verb::WorkspaceCreate(_) => ExternalOutcome::Created(self.pane.clone()),
-            Verb::AgentStart(_) => ExternalOutcome::Started(signal_herdr_nexus::State::Busy),
+            Verb::AgentStart(_) => ExternalOutcome::Started(signal_capsule_nexus::State::Busy),
             Verb::AgentPrompt(_) => ExternalOutcome::Uncertain,
             Verb::PaneList => {
                 self.list_started.send(()).unwrap();
                 self.release_list.lock().unwrap().recv().unwrap();
                 ExternalOutcome::Panes(vec![pane_listing(&self.pane)])
             }
-            Verb::AgentList => ExternalOutcome::Agents(vec![agent_listing(&self.pane, signal_herdr_nexus::State::Open)]),
+            Verb::AgentList => ExternalOutcome::Agents(vec![agent_listing(&self.pane, signal_capsule_nexus::State::Open)]),
             _ => ExternalOutcome::Done,
         })
     }
@@ -171,7 +171,7 @@ fn test_configuration() -> Arc<ReadyCoreConfiguration> {
 
 #[test]
 fn stale_list_cannot_overwrite_uncertain_prompt_state() {
-    use signal_herdr_nexus::{AgentKind, AgentName, Attempt, Command, Executable, Label, Program, Prompt_Data, Query, Start_Data, Text};
+    use signal_capsule_nexus::{AgentKind, AgentName, Attempt, Command, Executable, Label, Program, Prompt_Data, Query, Start_Data, Text};
     let pane = Pane { session: Session("attempt-race".into()), pane_id: PaneId("pane".into()) };
     let (started_tx, started_rx) = std::sync::mpsc::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
@@ -180,14 +180,14 @@ fn stale_list_cannot_overwrite_uncertain_prompt_state() {
     let paths = SocketPaths::from(&place);
     let dispatcher = Arc::new(Dispatcher::with_emitter(&paths, emitter));
     let configuration = test_configuration();
-    assert!(matches!(dispatcher.dispatch(Query::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_herdr_nexus::Response::Created(Outcome::Created(_))));
-    assert!(matches!(dispatcher.dispatch(Query::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_herdr_nexus::Response::Started(Outcome::Done)));
+    assert!(matches!(dispatcher.dispatch(Query::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_capsule_nexus::Response::Created(Outcome::Created(_))));
+    assert!(matches!(dispatcher.dispatch(Query::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_capsule_nexus::Response::Started(Outcome::Done)));
     let listing = { let dispatcher=Arc::clone(&dispatcher); let configuration=Arc::clone(&configuration); let session=pane.session.clone(); std::thread::spawn(move || dispatcher.dispatch(Query::List(session), configuration)) };
     started_rx.recv().unwrap();
-    assert!(matches!(dispatcher.dispatch(Query::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_herdr_nexus::Response::Prompted(Outcome::Uncertain)));
+    assert!(matches!(dispatcher.dispatch(Query::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_capsule_nexus::Response::Prompted(Outcome::Uncertain)));
     release_tx.send(()).unwrap();
-    let signal_herdr_nexus::Response::Listed(Outcome::Listed(known)) = listing.join().unwrap() else { panic!("complete list") };
-    assert_eq!(known[0].state, signal_herdr_nexus::State::Busy);
+    let signal_capsule_nexus::Response::Listed(Outcome::Listed(known)) = listing.join().unwrap() else { panic!("complete list") };
+    assert_eq!(known[0].state, signal_capsule_nexus::State::Busy);
     assert_eq!(known[0].attempt, Attempt::Uncertain);
     drop(dispatcher);
     std::fs::remove_dir(directory).unwrap();
@@ -204,7 +204,7 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
     ] {
         assert!(matches!(
             store.configure(setting, || Ok(())),
-            core_meta_herdr_nexus::Response::Configured(_)
+            core_meta_capsule_nexus::Response::Configured(_)
         ));
     }
 
@@ -234,11 +234,11 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
     release_tx.send(()).expect("release final setting");
     assert!(matches!(
         final_setting.join().expect("final setting thread"),
-        core_meta_herdr_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Response::Configured(_)
     ));
     assert!(matches!(
         second_setting.join().expect("second setting thread"),
-        core_meta_herdr_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Response::Configured(_)
     ));
     assert_eq!(
         store.partial.read().expect("partial configuration").polling,
@@ -247,16 +247,16 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
 }
 
 #[test]
-fn sockets_are_named_after_the_herdr_nexus() {
-    let names = herdr_nexus_wire::socket_names();
-    assert_eq!(names.public_nexus_socket.0, "herdr-nexus.sock");
-    assert_eq!(names.meta_nexus_socket.0, "herdr-nexus-meta.sock");
+fn sockets_are_named_after_the_capsule_nexus() {
+    let names = capsule_nexus_wire::socket_names();
+    assert_eq!(names.public_nexus_socket.0, "capsule-nexus.sock");
+    assert_eq!(names.meta_nexus_socket.0, "capsule-nexus-meta.sock");
     assert_eq!(
         names.public_translator_socket.0,
-        "herdr-nexus-translator.sock"
+        "capsule-nexus-translator.sock"
     );
     assert_eq!(
         names.meta_translator_socket.0,
-        "herdr-nexus-meta-translator.sock"
+        "capsule-nexus-meta-translator.sock"
     );
 }

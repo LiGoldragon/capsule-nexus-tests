@@ -1,6 +1,8 @@
-# herdr Nexus regressions
+# Capsule Nexus regressions
 
-External regressions for the pinned herdr Nexus source. `nix flake check -L`
+Branch `rename/capsule-cdc93e` holds the approved Capsule Nexus naming migration; flow `cdc93e` owns it. Deployment remains unchanged.
+
+External regressions for the pinned Capsule Nexus source. `nix flake check -L`
 copies that source into a build sandbox, applies the explicit test-only hook in
 `patches/external-tests.patch`, and runs the stored tests.
 

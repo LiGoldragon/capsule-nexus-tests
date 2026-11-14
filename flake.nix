@@ -1,5 +1,5 @@
 {
-  description = "External regression tests for herdr Nexus";
+  description = "External regression tests for Capsule Nexus";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -8,21 +8,21 @@
       url = "github:LiGoldragon/rust-build";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    herdr-nexus = {
-      url = "github:LiGoldragon/herdr-nexus/82c2cab";
+    capsule-nexus = {
+      url = "github:LiGoldragon/capsule-nexus";
       flake = false;
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-build, herdr-nexus }:
+  outputs = { self, nixpkgs, flake-utils, rust-build, capsule-nexus }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
         rust = rust-build.lib.${system}.fromPkgs pkgs;
-        prepared = pkgs.runCommand "herdr-nexus-external-test-source" {
+        prepared = pkgs.runCommand "capsule-nexus-external-test-source" {
           nativeBuildInputs = [ pkgs.patch ];
         } ''
-          cp -R ${herdr-nexus} "$out"
+          cp -R ${capsule-nexus} "$out"
           chmod -R u+w "$out"
           patch --fuzz=0 --directory="$out" --strip=1 < ${./patches/external-tests.patch}
           mkdir -p "$out/external-tests"
@@ -40,11 +40,11 @@
         };
       in {
         checks.regressions = rust.craneLib.cargoTest {
-          pname = "herdr-nexus-external-regressions";
+          pname = "capsule-nexus-external-regressions";
           version = "0.1.0";
           src = source;
           inherit cargoArtifacts;
-          cargoTestExtraArgs = "-p herdr-nexus-daemon --lib --all-features";
+          cargoTestExtraArgs = "-p capsule-nexus-daemon --lib --all-features";
         };
       });
 }

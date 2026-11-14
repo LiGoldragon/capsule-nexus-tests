@@ -265,14 +265,14 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
 #[test]
 fn sockets_are_named_after_the_capsule_nexus() {
     let names = capsule_nexus_wire::socket_names();
-    assert_eq!(names.public_nexus_socket.0, "capsule-nexus.sock");
-    assert_eq!(names.meta_nexus_socket.0, "capsule-nexus-meta.sock");
+    assert_eq!(names.public_nexus_socket.0, "capsule.sock");
+    assert_eq!(names.meta_nexus_socket.0, "capsule-meta.sock");
     assert_eq!(
         names.public_translator_socket.0,
-        "capsule-nexus-translator.sock"
+        "capsule-translator.sock"
     );
     assert_eq!(
         names.meta_translator_socket.0,
-        "capsule-nexus-meta-translator.sock"
+        "capsule-meta-translator.sock"
     );
 }

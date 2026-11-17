@@ -35,7 +35,7 @@ fn configure_until_final(bootstrap: &Bootstrap) {
         CoreSet::FrameCapacity(ByteLimit(65_536)),
         CoreSet::TransportTimeout(Timeout(1_000)),
     ] {
-        assert!(matches!(bootstrap.configure(setting), core_meta_capsule_nexus::Response::Configured(_)));
+        assert!(matches!(bootstrap.configure(setting), core_meta_capsule_nexus::Output::Configured(_)));
     }
 }
 
@@ -70,7 +70,7 @@ fn accepted_public_connection_always_has_ready_snapshot() {
     };
     assert!(matches!(
         bootstrap.configure(CoreSet::SubscriberCapacity(8)),
-        core_meta_capsule_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Output::Configured(_)
     ));
     assert!(accepting.join().expect("accept thread"));
     let stream = connecting.join().expect("connect thread");
@@ -84,12 +84,12 @@ fn frame_capacity_refusal_preserves_the_prior_setting() {
     let store = ConfigurationStore::default();
     assert!(matches!(
         store.configure(CoreSet::FrameCapacity(ByteLimit(capsule_nexus_wire::frame::HEADER_BYTES as i64)), || Ok(())),
-        core_meta_capsule_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Output::Configured(_)
     ));
     let before = store.partial.read().expect("partial").frame_capacity_bytes;
     assert!(matches!(
         store.configure(CoreSet::FrameCapacity(ByteLimit(capsule_nexus_wire::frame::HEADER_BYTES as i64 - 1)), || Ok(())),
-        core_meta_capsule_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))
+        core_meta_capsule_nexus::Output::ConfigureRefused(ConfigurationRefusal::Invalid(_))
     ));
     assert_eq!(store.partial.read().expect("partial").frame_capacity_bytes, before);
 }
@@ -120,14 +120,14 @@ fn delayed_prompt_grant_is_refused_after_remove_and_rebind() {
     let caller = capsule_nexus_wire::frame::peer_caller(&std::os::unix::net::UnixStream::pair().unwrap().0).unwrap();
     let identity = PeerIdentity { user_id: caller.user_id.clone(), process_id: caller.process_id.clone() };
     let first = PeerBinding { peer_id: PeerId("first".into()), peer_identity: identity.clone() };
-    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Output::Configured(_)));
     let (_, generation) = store.peer_for(&caller).expect("accepted grant");
     assert!(store.peer_grant_is_current(&caller, &first.peer_id, generation));
     let second = PeerBinding { peer_id: PeerId("second".into()), peer_identity: identity };
-    assert!(matches!(store.configure(CoreSet::Peer(second), || Ok(())), core_meta_capsule_nexus::Response::ConfigureRefused(ConfigurationRefusal::Invalid(_))));
-    assert!(matches!(store.configure(CoreSet::RemovePeer(first.peer_id.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(second), || Ok(())), core_meta_capsule_nexus::Output::ConfigureRefused(ConfigurationRefusal::Invalid(_))));
+    assert!(matches!(store.configure(CoreSet::RemovePeer(first.peer_id.clone()), || Ok(())), core_meta_capsule_nexus::Output::Configured(_)));
     assert!(!store.peer_grant_is_current(&caller, &first.peer_id, generation));
-    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Response::Configured(_)));
+    assert!(matches!(store.configure(CoreSet::Peer(first.clone()), || Ok(())), core_meta_capsule_nexus::Output::Configured(_)));
     let (_, rebound_generation) = store.peer_for(&caller).expect("rebound grant");
     assert_ne!(generation, rebound_generation);
     assert!(!store.peer_grant_is_current(&caller, &first.peer_id, generation));
@@ -171,9 +171,9 @@ fn test_configuration() -> Arc<ReadyCoreConfiguration> {
 
 fn dispatch_for_test(
     dispatcher: &Dispatcher,
-    query: signal_capsule_nexus::Query,
+    query: signal_capsule_nexus::Input,
     configuration: Arc<ReadyCoreConfiguration>,
-) -> signal_capsule_nexus::Response {
+) -> signal_capsule_nexus::Output {
     let principal = shared_translator::Principal::Login(current_identity().user_id);
     match dispatcher.dispatch_as(principal, query, configuration) {
         PublicDispatch::Answered(response) => response,
@@ -183,7 +183,7 @@ fn dispatch_for_test(
 
 #[test]
 fn stale_list_cannot_overwrite_uncertain_prompt_state() {
-    use signal_capsule_nexus::{AgentKind, AgentName, Attempt, Command, Executable, Label, Program, Prompt_Data, Query, Start_Data, Text};
+    use signal_capsule_nexus::{AgentKind, AgentName, Attempt, Command, Executable, Label, Program, Prompt_Data, Input, Start_Data, Text};
     let pane = Pane { session: Session("attempt-race".into()), pane_id: PaneId("pane".into()) };
     let (started_tx, started_rx) = std::sync::mpsc::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
@@ -196,13 +196,13 @@ fn stale_list_cannot_overwrite_uncertain_prompt_state() {
     dispatcher.emitter = emitter;
     let dispatcher = Arc::new(dispatcher);
     let configuration = test_configuration();
-    assert!(matches!(dispatch_for_test(&dispatcher, Query::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_capsule_nexus::Response::Created(Outcome::Created(_))));
-    assert!(matches!(dispatch_for_test(&dispatcher, Query::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_capsule_nexus::Response::Started(Outcome::Done)));
-    let listing = { let dispatcher=Arc::clone(&dispatcher); let configuration=Arc::clone(&configuration); let session=pane.session.clone(); std::thread::spawn(move || dispatch_for_test(&dispatcher, Query::List(session), configuration)) };
+    assert!(matches!(dispatch_for_test(&dispatcher, Input::Create(workspace("/tmp")), Arc::clone(&configuration)), signal_capsule_nexus::Output::Created(Outcome::Created(_))));
+    assert!(matches!(dispatch_for_test(&dispatcher, Input::Start(Start_Data { pane: pane.clone(), command: Command { agent_name: AgentName("probe".into()), agent_kind: AgentKind::Codex, executable: Executable::Explicit(Program("/bin/true".into())), string_vector: Vec::new() }, label: Label("flow".into()) }), Arc::clone(&configuration)), signal_capsule_nexus::Output::Started(Outcome::Done)));
+    let listing = { let dispatcher=Arc::clone(&dispatcher); let configuration=Arc::clone(&configuration); let session=pane.session.clone(); std::thread::spawn(move || dispatch_for_test(&dispatcher, Input::List(session), configuration)) };
     started_rx.recv().unwrap();
-    assert!(matches!(dispatch_for_test(&dispatcher, Query::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_capsule_nexus::Response::Prompted(Outcome::Uncertain)));
+    assert!(matches!(dispatch_for_test(&dispatcher, Input::Prompt(Prompt_Data { pane: pane.clone(), text: Text("hello".into()) }), configuration), signal_capsule_nexus::Output::Prompted(Outcome::Uncertain)));
     release_tx.send(()).unwrap();
-    let signal_capsule_nexus::Response::Listed(Outcome::Listed(known)) = listing.join().unwrap() else { panic!("complete list") };
+    let signal_capsule_nexus::Output::Listed(Outcome::Listed(known)) = listing.join().unwrap() else { panic!("complete list") };
     assert_eq!(known[0].state, signal_capsule_nexus::State::Busy);
     assert_eq!(known[0].attempt, Attempt::Uncertain);
     drop(dispatcher);
@@ -220,7 +220,7 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
     ] {
         assert!(matches!(
             store.configure(setting, || Ok(())),
-            core_meta_capsule_nexus::Response::Configured(_)
+            core_meta_capsule_nexus::Output::Configured(_)
         ));
     }
 
@@ -250,11 +250,11 @@ fn concurrent_configure_responses_do_not_lose_an_applied_setting() {
     release_tx.send(()).expect("release final setting");
     assert!(matches!(
         final_setting.join().expect("final setting thread"),
-        core_meta_capsule_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Output::Configured(_)
     ));
     assert!(matches!(
         second_setting.join().expect("second setting thread"),
-        core_meta_capsule_nexus::Response::Configured(_)
+        core_meta_capsule_nexus::Output::Configured(_)
     ));
     assert_eq!(
         store.partial.read().expect("partial configuration").polling,

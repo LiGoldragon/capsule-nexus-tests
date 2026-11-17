@@ -1,7 +1,7 @@
 diff --git a/crates/daemon/src/lib.rs b/crates/daemon/src/lib.rs
 --- a/crates/daemon/src/lib.rs
 +++ b/crates/daemon/src/lib.rs
-@@ -2067,6 +2067,10 @@
+@@ -2078,6 +2078,10 @@
              if let Err(refusal) = bind_public() {
                  return Output::ConfigureRefused(ConfigurationRefusal::Unavailable(refusal));
              }
@@ -12,7 +12,7 @@ diff --git a/crates/daemon/src/lib.rs b/crates/daemon/src/lib.rs
          }
          *self.partial.write().unwrap_or_else(|p| p.into_inner()) = candidate;
          if let Some(validated) = validated {
-@@ -3716,3 +3720,7 @@
+@@ -3741,3 +3745,7 @@
          };
          assert!(!forged.matches(&mismatched));
      }

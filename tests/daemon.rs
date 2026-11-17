@@ -166,7 +166,7 @@ impl ExternalEmitter for StaleListEmitter {
 }
 
 fn test_configuration() -> Arc<ReadyCoreConfiguration> {
-    Arc::new(ReadyCoreConfiguration { polling: Duration::from_millis(10), start_timeout: Duration::from_millis(20), frame_capacity_bytes: 4096, transport_timeout: Duration::from_millis(30), subscriber_capacity: 8 })
+    Arc::new(ReadyCoreConfiguration { polling: Duration::from_millis(10), start_timeout: Duration::from_millis(20), frame_capacity_bytes: 4096, transport_timeout: Duration::from_millis(30) })
 }
 
 fn dispatch_for_test(

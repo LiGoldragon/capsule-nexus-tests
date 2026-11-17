@@ -176,8 +176,8 @@ fn dispatch_for_test(
 ) -> signal_capsule_nexus::Output {
     let principal = shared_translator::Principal::Login(current_identity().user_id);
     match dispatcher.dispatch_as(principal, query, configuration) {
-        PublicDispatch::Answered(response) => response,
-        PublicDispatch::Subscribe(_) => panic!("one-shot regression dispatched a subscription"),
+        signal_capsule_nexus::Answer::Once(response) => response,
+        signal_capsule_nexus::Answer::Subscribed(_) => panic!("one-shot regression dispatched a subscription"),
     }
 }
 
@@ -192,7 +192,8 @@ fn stale_list_cannot_overwrite_uncertain_prompt_state() {
     let paths = SocketPaths::from(&place);
     let configuration_store = Arc::new(ConfigurationStore::default());
     *configuration_store.current.write().unwrap() = Some(test_configuration());
-    let mut dispatcher = Dispatcher::new(&paths, configuration_store, InstanceId("external-stale-list".into()));
+    let runtime = tokio::runtime::Runtime::new().expect("runtime");
+    let mut dispatcher = Dispatcher::new(&paths, configuration_store, InstanceId("external-stale-list".into()), runtime.handle().clone());
     dispatcher.emitter = emitter;
     let dispatcher = Arc::new(dispatcher);
     let configuration = test_configuration();

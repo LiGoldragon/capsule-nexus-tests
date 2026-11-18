@@ -3,11 +3,11 @@
     "capsule-nexus": {
       "flake": false,
       "locked": {
-        "lastModified": 1794987559,
-        "narHash": "sha256-34PU/oc0noyaSSgtTsT+FuLBkdMENPndDe1tyuxZEU0=",
+        "lastModified": 1794988573,
+        "narHash": "sha256-EjRetuE+uyhCQoBWIRwMiic/IzqcD4hx0KBiGQYZC3s=",
         "owner": "LiGoldragon",
         "repo": "capsule-nexus",
-        "rev": "5d598d0f6670b011621f270329f6d4143fa689d4",
+        "rev": "16937ecf354d2a12d80a7eee95ae0b6bd519ef5d",
         "type": "github"
       },
       "original": {

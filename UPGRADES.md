@@ -1,5 +1,11 @@
 # Upgrades
 
+## Capsule Nexus on the renumbered contracts
+
+The regressions follow Capsule Nexus to 9571592, where its contracts are renumbered to the 0.x
+line: signal-capsule-nexus 3.0.0 is 0.5.0 and meta-signal-capsule-nexus 1.0.1 is 0.5.0, each the
+same contract. Nothing they pass changes.
+
 ## Capsule Nexus 0.10.0 — the shared layer's 0.3.0
 
 The regressions follow Capsule Nexus onto the nexus crates and the
